@@ -1,4 +1,22 @@
-venv/ 
-__pycache__/ 
-*.log 
-.ipynb_checkpoints/ 
+# Ignore the virtual environment
+venv/
+
+# Ignore Python cache files
+__pycache__/
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore unnecessary log files
+*.log
+
+# Ignore dataset files (if they are very large)
+data/
+*.csv
+*.h5
+*.pkl
+*.json
+
+# Ignore system-specific files
+.DS_Store  # macOS system file
+Thumbs.db  # Windows system file

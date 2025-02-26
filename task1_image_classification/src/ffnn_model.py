@@ -2,6 +2,7 @@ import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.layers import Input
 from interface import MnistClassifierInterface
 
 class FFNNModel(MnistClassifierInterface):
@@ -15,7 +16,7 @@ class FFNNModel(MnistClassifierInterface):
 
         # Define the neural network architecture
         self.model = Sequential([
-            Flatten(input_shape=input_shape),  # Convert 28x28 image into a 1D vector
+            Input(shape=(28,28)),  # ✅ Use Input() as the first layer (Fixes warning)
             Dense(128, activation='relu'),  # First hidden layer
             Dense(num_classes, activation='softmax')  # Output layer (10 classes)
         ])
