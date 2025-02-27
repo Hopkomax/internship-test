@@ -23,7 +23,7 @@ class CNNModel(MnistClassifierInterface):
         self.model = Sequential([
             Input(shape=(28, 28, 1)),  
             Conv2D(32, kernel_size=(3,3), activation='relu'),
-            BatchNormalization(),  # ✅ Improves learning stability
+            BatchNormalization(),  # Improves learning stability
             MaxPooling2D(pool_size=(2,2)),
 
             Conv2D(64, kernel_size=(3,3), activation='relu'),
@@ -32,7 +32,7 @@ class CNNModel(MnistClassifierInterface):
 
             Flatten(),  
             Dense(128, activation='relu'),
-            Dropout(0.3),  # ✅ Helps prevent overfitting  
+            Dropout(0.3),  # Helps prevent overfitting  
             Dense(num_classes, activation='softmax')  
         ])
 
