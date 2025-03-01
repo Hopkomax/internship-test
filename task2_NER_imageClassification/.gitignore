@@ -14,6 +14,8 @@ notebooks/.ipynb_checkpoints/
 data/*.zip
 data/raw/
 data/images/
+data/train/
+data/val/
 
 # Ignore trained models and logs
 models/
