@@ -1,69 +1,81 @@
 import torch
-from transformers import AutoModelForTokenClassification, AutoTokenizer, TrainingArguments, Trainer
+import numpy as np
+from transformers import BertForTokenClassification, BertTokenizerFast, Trainer, TrainingArguments, DataCollatorForTokenClassification
 from datasets import load_dataset
 
-# ✅ Load the NER dataset (we use "conll2003" as an example)
-dataset = load_dataset("conll2003", trust_remote_code=True)
+# 🔹 Force CPU usage
+device = torch.device("cpu")
+print(f"Using device: {device}")
 
-# ✅ Define the label names for NER (we will only focus on "ANIMALS")
-label_list = ["O", "B-ANIMAL", "I-ANIMAL"]
+# 🔹 Load dataset
+dataset = load_dataset("conll2003")
 
-# ✅ Load a Pretrained Transformer Model (BERT-based)
-model_name = "dbmdz/bert-large-cased-finetuned-conll03-english"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForTokenClassification.from_pretrained(model_name, num_labels=len(label_list), ignore_mismatched_sizes=True)
+# 🔹 Get unique labels from dataset
+unique_labels = set(label for row in dataset["train"]["ner_tags"] for label in row)
+num_labels = len(unique_labels)
+print(f"🔹 Detected {num_labels} unique labels in dataset.")
 
-# ✅ Tokenize the text for NER
-def tokenize_and_align_labels(example):
-    tokenized_inputs = tokenizer(example["tokens"], truncation=True, padding="max_length", is_split_into_words=True)
+# 🔹 Use a smaller model (Replace 'bert-large' with 'bert-base'!)
+model_name = "bert-base-cased"
+tokenizer = BertTokenizerFast.from_pretrained(model_name)
+model = BertForTokenClassification.from_pretrained(model_name, num_labels=num_labels).to(device)  # 🛠 FIXED: Set num_labels dynamically
 
-    # Ensure that labels are properly formatted
-    word_ids = tokenized_inputs.word_ids()  # Map tokens to words
-    label_ids = []
+# 🔹 Tokenization function with label alignment
+def tokenize_and_align_labels(examples):
+    tokenized_inputs = tokenizer(
+        examples["tokens"], truncation=True, padding="max_length", is_split_into_words=True
+    )
     
-    previous_word_idx = None
-    for word_idx in word_ids:
-        if word_idx is None:
-            label_ids.append(-100)  # Ignore special tokens
-        elif word_idx != previous_word_idx:
-            label_ids.append(example["ner_tags"][word_idx])  # Use word-level labels
-        else:
-            label_ids.append(-100)  # Ignore subword tokens
-        
-        previous_word_idx = word_idx
-
-    tokenized_inputs["labels"] = label_ids
+    labels = []
+    for i, label in enumerate(examples["ner_tags"]):
+        word_ids = tokenized_inputs.word_ids(batch_index=i)  # Get word indices
+        previous_word_idx = None
+        label_ids = []
+        for word_idx in word_ids:
+            if word_idx is None:
+                label_ids.append(-100)  # Ignore padding
+            elif word_idx != previous_word_idx:
+                label_ids.append(int(label[word_idx]))  # Convert to int explicitly
+            else:
+                label_ids.append(-100)  # Ignore subword tokens
+            previous_word_idx = word_idx
+        labels.append(label_ids)
+    
+    tokenized_inputs["labels"] = labels
     return tokenized_inputs
 
+# 🔹 Apply tokenization
+tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True, remove_columns=dataset["train"].column_names)
 
-# ✅ Apply tokenization to the dataset
-tokenized_datasets = dataset.map(tokenize_and_align_labels, batched=True)
+# 🔹 Define Data Collator (ensures proper padding)
+data_collator = DataCollatorForTokenClassification(tokenizer)
 
-# ✅ Define Training Arguments
+# 🔹 Optimized Training Arguments
 training_args = TrainingArguments(
-    output_dir="./models/ner_model",
+    output_dir="./ner_model",
     evaluation_strategy="epoch",
-    learning_rate=2e-5,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
+    save_strategy="epoch",
+    per_device_train_batch_size=1,  # 🚀 Smaller batch size for CPU
+    per_device_eval_batch_size=1,  # 🚀 Smaller batch size
     num_train_epochs=3,
-    weight_decay=0.01,
+    gradient_accumulation_steps=8,  # 🚀 Simulate large batch size without extra RAM
     logging_dir="./logs",
+    logging_steps=5000,  # 🚀 Log less often
+    save_steps=10000,  # 🚀 Save model less often
+    save_total_limit=2,
+    fp16=False,  # 🚀 No float16 on CPU
+    remove_unused_columns=False,  # 🚀 Avoid data collation errors
 )
 
-# ✅ Define Trainer
+# 🔹 Initialize Trainer
 trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=tokenized_datasets["train"],
     eval_dataset=tokenized_datasets["validation"],
     tokenizer=tokenizer,
+    data_collator=data_collator,  # Ensure proper padding
 )
 
-# ✅ Train the model
+# 🔹 Start Training
 trainer.train()
-
-# ✅ Save the trained model
-model.save_pretrained("models/ner_model")
-tokenizer.save_pretrained("models/ner_model")
-print("✅ NER Model Training Complete!")
