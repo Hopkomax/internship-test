@@ -33,3 +33,8 @@ Thumbs.db
 .idea/
 
 models/
+
+task2_NER_imageClassification/ner_model/*.safetensors
+task2_NER_imageClassification/ner_model/*.bin
+task2_NER_imageClassification/ner_model/checkpoint-250/*
+
