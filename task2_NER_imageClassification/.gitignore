@@ -31,3 +31,5 @@ Thumbs.db
 # Ignore IDE files (VSCode, PyCharm)
 .vscode/
 .idea/
+
+models/
